@@ -1,28 +1,22 @@
 FROM onlyoffice/documentserver:latest
 
+# Включаем JWT и задаем параметры из Railway env
 ENV JWT_ENABLED=true
 ENV JWT_SECRET=7d586366a6a34827afc14f418e239df8
 ENV JWT_HEADER=AuthorizationJwt
 ENV JWT_IN_BODY=true
 
-# Добавляем скрипт для включения JWT после запуска DocumentServer
+# Принудительно записываем JWT-секрет в конфиг при старте контейнера
 RUN echo '#!/bin/bash\n\
-sleep 10\n\
-sed -i "s/\"enable\": false/\"enable\": true/g" /etc/onlyoffice/documentserver/default.json\n\
-sed -i "s/\"secret\": \"\"/\"secret\": \"7d586366a6a34827afc14f418e239df8\"/g" /etc/onlyoffice/documentserver/default.json\n\
-echo "==== JWT configuration patched ===="\n\
-grep -A3 \"jwt\" /etc/onlyoffice/documentserver/default.json\n\
-exit 0' > /apply-jwt.sh && chmod +x /apply-jwt.sh
+sleep 5\n\
+CONFIG=/etc/onlyoffice/documentserver/default.json\n\
+if [ -f $CONFIG ]; then\n\
+  sed -i "s/\"enable\": *false/\"enable\": true/g" $CONFIG\n\
+  sed -i "s/\"secret\": *\"[^\"]*\"/\"secret\": \"${JWT_SECRET}\"/g" $CONFIG\n\
+  echo "✅ JWT config applied:"\n\
+  grep -A3 \"jwt\" $CONFIG\n\
+fi\n\
+exec supervisord -c /etc/supervisor/supervisord.conf\n\
+' > /run-and-fix.sh && chmod +x /run-and-fix.sh
 
-# Добавляем отдельный конфиг для supervisor (работает в этом образе)
-RUN echo '[program:apply-jwt]\n\
-command=/bin/bash /apply-jwt.sh\n\
-autostart=true\n\
-startsecs=0\n\
-priority=1\n\
-stdout_logfile=/dev/stdout\n\
-stderr_logfile=/dev/stderr\n\
-' > /etc/supervisor/conf.d/apply-jwt.conf
-
-EXPOSE 8000
-CMD service postgresql start && service rabbitmq-server start && service nginx start && /usr/bin/documentserver
+CMD ["/bin/bash", "/run-and-fix.sh"]

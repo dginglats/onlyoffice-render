@@ -10,7 +10,7 @@ ENV JWT_IN_BODY=true
 ENV NGINX_CORS_ALLOW_ORIGIN=https://94793cf8-09ca-497a-a7f3-a913759231d7.lovableproject.com
 ENV WOPI_ENABLED=true
 
-# --- Скрипт старта с фиксом JWT и CORS ---
+# --- Скрипт старта с фиксом JWT, CORS и web-apps ---
 RUN echo '#!/bin/bash\n\
 sleep 5\n\
 CONFIG=/etc/onlyoffice/documentserver/default.json\n\
@@ -25,6 +25,12 @@ if [ -f $CONFIG ]; then\n\
   grep -A3 \"jwt\" $CONFIG\n\
 fi\n\
 \n\
+# --- Fix Nginx root path (9.x compatibility) ---\n\
+if grep -q \"web-apps\" $NGINX_CONF; then\n\
+  sed -i \"s/web-apps/sdkjs/g\" $NGINX_CONF\n\
+  echo \"✅ Updated nginx root path to sdkjs\"\n\
+fi\n\
+\n\
 # --- Add CORS rules dynamically ---\n\
 mkdir -p /etc/onlyoffice/documentserver/nginx/includes\n\
 cat > $CUSTOM_CORS <<EOL\n\
@@ -37,15 +43,8 @@ EOL\n\
 if ! grep -q custom-cors.conf $NGINX_CONF; then\n\
   sed -i \"/include includes\\/ds-common.conf;/a include includes\\/custom-cors.conf;\" $NGINX_CONF\n\
 fi\n\
+\n\
 echo \"✅ CORS rules added for: ${NGINX_CORS_ALLOW_ORIGIN}\"\n\
-\n\
-# --- Проверяем наличие web-apps ---\n\
-if [ ! -d /var/www/onlyoffice/documentserver/web-apps/apps ]; then\n\
-  echo \"⚠️  web-apps directory not found, recreating...\"\n\
-  mkdir -p /var/www/onlyoffice/documentserver/web-apps/apps\n\
-fi\n\
-ls -la /var/www/onlyoffice/documentserver/web-apps || true\n\
-\n\
 exec supervisord -c /etc/supervisor/supervisord.conf\n\
 ' > /run-and-fix.sh && chmod +x /run-and-fix.sh
 

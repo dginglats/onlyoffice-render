@@ -7,10 +7,11 @@ ENV JWT_HEADER=
 ENV JWT_IN_BODY=true
 
 # --- CORS и разрешение встраивания CRM ---
-ENV NGINX_CORS_ALLOW_ORIGIN=https://94793cf8-09ca-497a-a7f3-a913759231d7.lovableproject.com
+# Можно указать несколько доменов через пробел
+ENV NGINX_CORS_ALLOW_ORIGIN="https://94793cf8-09ca-497a-a7f3-a913759231d7.lovableproject.com https://solardrive.site"
 ENV WOPI_ENABLED=true
 
-# --- Скрипт старта с фиксом JWT, CORS и web-apps ---
+# --- Скрипт старта с фиксом JWT, CORS и root path (sdkjs) ---
 RUN echo '#!/bin/bash\n\
 sleep 5\n\
 CONFIG=/etc/onlyoffice/documentserver/default.json\n\
@@ -21,17 +22,17 @@ CUSTOM_CORS=/etc/onlyoffice/documentserver/nginx/includes/custom-cors.conf\n\
 if [ -f $CONFIG ]; then\n\
   sed -i \"s/\\\"enable\\\": *false/\\\"enable\\\": true/g\" $CONFIG\n\
   sed -i \"s/\\\"secret\\\": *\\\"[^\\\"]*\\\"/\\\"secret\\\": \\\"${JWT_SECRET}\\\"/g\" $CONFIG\n\
-  echo \"✅ JWT config applied:\"\n\
+  echo \"✅ JWT config applied\"\n\
   grep -A3 \"jwt\" $CONFIG\n\
 fi\n\
 \n\
-# --- Fix Nginx root path (9.x compatibility) ---\n\
+# --- Fix Nginx root path (for 9.1+) ---\n\
 if grep -q \"web-apps\" $NGINX_CONF; then\n\
   sed -i \"s/web-apps/sdkjs/g\" $NGINX_CONF\n\
-  echo \"✅ Updated nginx root path to sdkjs\"\n\
+  echo \"✅ Updated nginx root path to /sdkjs\"\n\
 fi\n\
 \n\
-# --- Add CORS rules dynamically ---\n\
+# --- Add CORS dynamically ---\n\
 mkdir -p /etc/onlyoffice/documentserver/nginx/includes\n\
 cat > $CUSTOM_CORS <<EOL\n\
 add_header Access-Control-Allow-Origin \"${NGINX_CORS_ALLOW_ORIGIN}\" always;\n\

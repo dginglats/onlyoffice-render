@@ -1,16 +1,16 @@
 FROM onlyoffice/documentserver:latest
 
-# === Настройки JWT ===
+# Включаем JWT
 ENV JWT_ENABLED=true
 ENV JWT_SECRET=7d586366a6a34827afc14f418e239df8
-ENV JWT_HEADER=AuthorizationJwt
+ENV JWT_HEADER=
 ENV JWT_IN_BODY=true
 
-# === Разрешаем встраивание CRM-домена и включаем WOPI ===
+# Включаем CORS и разрешаем встраивание CRM-домена
 ENV NGINX_CORS_ALLOW_ORIGIN=https://94793cf8-09ca-497a-a7f3-a913759231d7.lovableproject.com
 ENV WOPI_ENABLED=true
 
-# === Основной скрипт: применяет JWT и CORS при запуске контейнера ===
+# Скрипт: применяем JWT и CORS
 RUN echo '#!/bin/bash\n\
 sleep 5\n\
 CONFIG=/etc/onlyoffice/documentserver/default.json\n\
@@ -19,7 +19,7 @@ CUSTOM_CORS=/etc/onlyoffice/documentserver/nginx/includes/custom-cors.conf\n\
 \n\
 # --- Fix JWT ---\n\
 if [ -f $CONFIG ]; then\n\
-  sed -i '\''s/\"enable\": *false/\"enable\": true/g'\'' $CONFIG\n\
+  sed -i \"s/\\\"enable\\\": *false/\\\"enable\\\": true/g\" $CONFIG\n\
   sed -i \"s/\\\"secret\\\": *\\\"[^\\\"]*\\\"/\\\"secret\\\": \\\"${JWT_SECRET}\\\"/g\" $CONFIG\n\
   echo \"✅ JWT config applied:\"\n\
   grep -A3 \"jwt\" $CONFIG\n\
@@ -34,7 +34,7 @@ add_header Access-Control-Allow-Headers \"Authorization, Content-Type, Origin, A
 add_header X-Frame-Options \"ALLOW-FROM ${NGINX_CORS_ALLOW_ORIGIN}\";\n\
 add_header Content-Security-Policy \"frame-ancestors ${NGINX_CORS_ALLOW_ORIGIN} *;\" always;\n\
 EOL\n\
-if ! grep -q custom-cors.conf $NGINX_CONF 2>/dev/null; then\n\
+if ! grep -q custom-cors.conf $NGINX_CONF; then\n\
   sed -i \"/include includes\\/ds-common.conf;/a include includes\\/custom-cors.conf;\" $NGINX_CONF\n\
 fi\n\
 echo \"✅ CORS rules added for: ${NGINX_CORS_ALLOW_ORIGIN}\"\n\
@@ -42,5 +42,9 @@ echo \"✅ CORS rules added for: ${NGINX_CORS_ALLOW_ORIGIN}\"\n\
 exec supervisord -c /etc/supervisor/supervisord.conf\n\
 ' > /run-and-fix.sh && chmod +x /run-and-fix.sh
 
-# === Запуск контейнера ===
+# --- Fix missing web-apps paths ---
+RUN mkdir -p /var/www/onlyoffice/documentserver/web-apps/ && \
+    cp -r /usr/share/onlyoffice/documentserver/web-apps/* /var/www/onlyoffice/documentserver/web-apps/ || true && \
+    chmod -R 755 /var/www/onlyoffice/documentserver/web-apps
+
 CMD ["/bin/bash", "/run-and-fix.sh"]

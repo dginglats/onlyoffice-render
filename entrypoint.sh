@@ -37,5 +37,10 @@ if ! grep -q custom-cors.conf "$NGINX_CONF"; then
 fi
 
 echo "✅ CORS rules added for: ${NGINX_CORS_ALLOW_ORIGIN}"
+
+# --- Fix legacy /web-apps path for OnlyOffice integrations ---
+echo "✅ Adding /web-apps redirect for compatibility..."
+echo 'rewrite ^/web-apps/(.*)$ /sdkjs/$1 break;' >> /etc/onlyoffice/documentserver/nginx/includes/ds-common.conf
+
 echo "🚀 Starting DocumentServer supervisor..."
 exec /app/ds/run-document-server.sh

@@ -14,15 +14,8 @@ echo "==== JWT configuration patched ===="\n\
 grep -A3 \"jwt\" /etc/onlyoffice/documentserver/default.json\n\
 exit 0' > /apply-jwt.sh && chmod +x /apply-jwt.sh
 
-# Добавляем запуск этого скрипта в supervisor
-RUN echo '[program:apply-jwt]\n\
-command=/bin/bash /apply-jwt.sh\n\
-autostart=true\n\
-startsecs=0\n\
-priority=1\n\
-stdout_logfile=/dev/stdout\n\
-stderr_logfile=/dev/stderr\n\
-' > /etc/supervisor/conf.d/apply-jwt.conf
+# Добавляем наш скрипт в главный конфиг supervisor
+RUN sed -i '/\[supervisord\]/a [program:apply-jwt]\ncommand=/bin/bash /apply-jwt.sh\nautostart=true\nstartsecs=0\npriority=1\nstdout_logfile=/dev/stdout\nstderr_logfile=/dev/stderr\n' /etc/supervisord.conf
 
 EXPOSE 8000
 CMD service postgresql start && service rabbitmq-server start && service nginx start && /usr/bin/documentserver

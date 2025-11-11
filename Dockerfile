@@ -1,16 +1,16 @@
 FROM onlyoffice/documentserver:latest
 
-# Включаем JWT
+# --- JWT настройки ---
 ENV JWT_ENABLED=true
 ENV JWT_SECRET=7d586366a6a34827afc14f418e239df8
 ENV JWT_HEADER=
 ENV JWT_IN_BODY=true
 
-# Включаем CORS и разрешаем встраивание CRM-домена
+# --- CORS и разрешение встраивания CRM ---
 ENV NGINX_CORS_ALLOW_ORIGIN=https://94793cf8-09ca-497a-a7f3-a913759231d7.lovableproject.com
 ENV WOPI_ENABLED=true
 
-# Скрипт: применяем JWT и CORS
+# --- Скрипт старта с фиксом JWT и CORS ---
 RUN echo '#!/bin/bash\n\
 sleep 5\n\
 CONFIG=/etc/onlyoffice/documentserver/default.json\n\
@@ -39,12 +39,14 @@ if ! grep -q custom-cors.conf $NGINX_CONF; then\n\
 fi\n\
 echo \"✅ CORS rules added for: ${NGINX_CORS_ALLOW_ORIGIN}\"\n\
 \n\
+# --- Проверяем наличие web-apps ---\n\
+if [ ! -d /var/www/onlyoffice/documentserver/web-apps/apps ]; then\n\
+  echo \"⚠️  web-apps directory not found, recreating...\"\n\
+  mkdir -p /var/www/onlyoffice/documentserver/web-apps/apps\n\
+fi\n\
+ls -la /var/www/onlyoffice/documentserver/web-apps || true\n\
+\n\
 exec supervisord -c /etc/supervisor/supervisord.conf\n\
 ' > /run-and-fix.sh && chmod +x /run-and-fix.sh
-
-# --- Fix missing web-apps paths ---
-RUN mkdir -p /var/www/onlyoffice/documentserver/web-apps/ && \
-    cp -r /usr/share/onlyoffice/documentserver/web-apps/* /var/www/onlyoffice/documentserver/web-apps/ || true && \
-    chmod -R 755 /var/www/onlyoffice/documentserver/web-apps
 
 CMD ["/bin/bash", "/run-and-fix.sh"]

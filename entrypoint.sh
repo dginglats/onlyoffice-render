@@ -40,7 +40,14 @@ echo "✅ CORS rules added for: ${NGINX_CORS_ALLOW_ORIGIN}"
 
 # --- Fix legacy /web-apps path for OnlyOffice integrations ---
 echo "✅ Adding /web-apps redirect for compatibility..."
-echo 'rewrite ^/web-apps/(.*)$ /sdkjs/$1 break;' >> /etc/onlyoffice/documentserver/nginx/includes/ds-common.conf
+cat <<'EOL' >> /etc/onlyoffice/documentserver/nginx/includes/ds-common.conf
+# Redirect old OnlyOffice paths used by CRMs
+location ~ ^/web-apps/(.*)$ {
+    rewrite ^/web-apps/(.*)$ /sdkjs/$1 break;
+    try_files /sdkjs/$1 =404;
+}
+EOL
+
 
 echo "🚀 Starting DocumentServer supervisor..."
 exec /app/ds/run-document-server.sh

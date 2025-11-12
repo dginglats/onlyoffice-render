@@ -48,6 +48,6 @@ location ~ ^/web-apps/(.*)$ {
 }
 EOL
 
-
 echo "🚀 Starting DocumentServer supervisor..."
 exec /app/ds/run-document-server.sh
+

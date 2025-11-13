@@ -5,6 +5,7 @@ echo "🔧 Starting OnlyOffice custom init..."
 CONFIG=/etc/onlyoffice/documentserver/default.json
 NGINX_CONF=/etc/onlyoffice/documentserver/nginx/ds.conf
 CUSTOM_CORS=/etc/onlyoffice/documentserver/nginx/includes/custom-cors.conf
+CUSTOM_REWRITE=/etc/onlyoffice/documentserver/nginx/includes/custom-rewrite.conf
 
 # --- JWT ---
 if [ -f "$CONFIG" ]; then
@@ -35,19 +36,21 @@ EOL
 if ! grep -q custom-cors.conf "$NGINX_CONF"; then
   sed -i '/include includes\/ds-common.conf;/a include includes\/custom-cors.conf;' "$NGINX_CONF"
 fi
-
 echo "✅ CORS rules added for: ${NGINX_CORS_ALLOW_ORIGIN}"
 
-# --- Fix legacy /web-apps path for OnlyOffice integrations ---
-echo "✅ Adding /web-apps redirect for compatibility..."
-cat <<'EOL' >> /etc/onlyoffice/documentserver/nginx/includes/ds-common.conf
-# Redirect old OnlyOffice paths used by CRMs
+# --- Redirect /web-apps -> /sdkjs ---
+cat > "$CUSTOM_REWRITE" <<'EOL'
 location ~ ^/web-apps/(.*)$ {
     rewrite ^/web-apps/(.*)$ /sdkjs/$1 break;
-    try_files /sdkjs/$1 =404;
+    root /var/www/onlyoffice/documentserver/;
 }
 EOL
 
+if ! grep -q custom-rewrite.conf "$NGINX_CONF"; then
+  sed -i '/include includes\/ds-common.conf;/a include includes\/custom-rewrite.conf;' "$NGINX_CONF"
+fi
+
+echo "✅ Added /web-apps rewrite for compatibility"
+
 echo "🚀 Starting DocumentServer supervisor..."
 exec /app/ds/run-document-server.sh
-
